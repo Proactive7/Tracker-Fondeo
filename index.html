@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TRACKER - TrackFondeo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f4f5f9;--card:#fff;--text:#111318;--muted:#6b7280;--line:#e5e7eb;--purple:#7c3aed;--ps:#f5f3ff;--green:#16a34a;--red:#ef4444}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit}.app{min-height:100vh}
+.auth-screen{display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}
+.auth-card{width:min(400px,100%);background:#fff;padding:30px;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,.1);border:1px solid var(--line)}
+.auth-card h2{margin-top:0;margin-bottom:20px;font-size:22px;text-align:center}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:#fff;border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;z-index:20}
+.brand{font-size:18px;font-weight:800;padding:0 8px 24px;display:flex;gap:8px;align-items:center}.brand b{color:var(--purple);font-size:22px}
+.nav{display:grid;gap:4px}.nav button{border:0;background:none;text-align:left;padding:10px 12px;border-radius:8px;color:#4b5563;cursor:pointer;font-size:14px;font-weight:500}.nav button.active{background:var(--ps);color:var(--purple);font-weight:600}
+.profile{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.profile-row{display:flex;gap:10px;align-items:center}
+.avatar{width:32px;height:32px;border-radius:50%;background:#111318;color:white;display:grid;place-items:center;font-weight:700}
+.main{margin-left:240px;padding:28px 36px;max-width:1600px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}h1{margin:0 0 4px;font-size:26px;font-weight:800}.subtitle{font-size:13px;color:var(--muted)}
+.actions{display:flex;gap:10px;align-items:center}.btn,.date-btn{border:1px solid var(--line);background:white;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:500}.btn.primary{background:var(--purple);color:#fff;border-color:var(--purple)}.btn.danger{color:var(--red)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.02)}
+.cardtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.icon{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;font-size:16px}
+.purple{background:#f3efff;color:#6d28d9}.green{background:#eaf9ef;color:var(--green)}.red{background:#fff0f0;color:var(--red)}
+.label{color:var(--muted);font-size:13px;margin-bottom:6px}.value{font-size:24px;font-weight:800}.trend{font-size:12px;font-weight:600}.up{color:var(--green)}.down{color:var(--red)}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,.02)}
+.panelhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.panel h2{font-size:16px;font-weight:700;margin:0}.panel p{color:var(--muted);font-size:12px;margin:4px 0 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase}.status{padding:4px 8px;border-radius:999px;font-size:11px;background:#eaf9ef;color:var(--green);font-weight:600}
+.modalbg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:50;align-items:center;justify-content:center;padding:20px}.modalbg.open{display:flex}
+.modal{width:min(480px,100%);background:#fff;border-radius:12px;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,.1)}.modal h2{margin:0 0 16px;font-size:18px}
+.form{display:grid;gap:12px}.form label{font-size:12px;font-weight:600;color:#374151}.form input,.form select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin-top:4px;outline:none}.modalactions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.toast{position:fixed;right:20px;bottom:20px;background:#111318;color:white;padding:10px 16px;border-radius:8px;display:none;z-index:100;font-size:13px}
+@media(max-width:1024px){.sidebar{transform:translateX(-100%);transition:.2s}.sidebar.open{transform:translateX(0)}.main{margin-left:0;padding:20px}.cards,.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="authView" class="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <h2 id="authTitle">Iniciar Sesión</h2>
+    <div class="form">
+      <label>Correo Electrónico<input type="email" id="authEmail" placeholder="tu@email.com"></label>
+      <label>Contraseña<input type="password" id="authPassword" placeholder="••••••••"></label>
+    </div>
+    <div style="margin-top:20px;display:grid;gap:8px;">
+      <button class="btn primary" style="width:100%;" id="authSubmitBtn" onclick="handleAuth()">Entrar</button>
+      <button class="btn" style="width:100%;" onclick="toggleAuthMode()" id="authToggleBtn">¿No tienes cuenta? Regístrate</button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="appView" style="display:none;">
+<aside class="sidebar" id="sidebar">
+<div class="brand"><b>↗</b> TRACKER</div>
+<nav class="nav">
+<button class="active" data-page="dashboard">Dashboard</button>
+<button data-page="evaluaciones">Evaluaciones</button>
+<button data-page="express">Express Funded</button>
+<button data-page="retiros">Retiros</button>
+<button data-page="gastos">Gastos</button>
+</nav>
+<div class="profile">
+<div class="profile-row"><div class="avatar" id="userInitial">T</div><div style="overflow:hidden;text-overflow:ellipsis;"><strong id="userEmailLabel">usuario@email.com</strong></div></div>
+<button class="btn danger" style="width:100%;padding:4px;font-size:11px;" onclick="logout()">Cerrar Sesión</button>
+</div>
+</aside>
+
+<main class="main">
+<header class="top">
+<div><h1 id="title">Dashboard</h1><div class="subtitle" id="subtitle">Resumen de tu rendimiento</div></div>
+<div class="actions">
+<select id="dateFilter" class="date-btn" onchange="changeFilter()">
+  <option value="all">📅 Todo el histórico</option>
+  <option value="year2026" selected>📅 Año Actual (2026)</option>
+  <option value="month">📅 Este Mes</option>
+  <option value="custom">📅 Personalizado...</option>
+</select>
+<button class="btn danger" id="reset">Poner todo a 0 (Vaciar datos)</button>
+</div>
+</header>
+<div id="content"></div>
+</main>
+</div>
+
+<div class="modalbg" id="customDateModal">
+  <div class="modal">
+    <h2>Filtrar por Rango de Fechas</h2>
+    <div class="form">
+      <label>Desde<input type="date" id="customStart" value="2026-01-01"></label>
+      <label>Hasta<input type="date" id="customEnd" value="2026-12-31"></label>
+    </div>
+    <div class="modalactions">
+      <button class="btn" onclick="closeCustomModal()">Cancelar</button>
+      <button class="btn primary" onclick="applyCustomFilter()">Aplicar Filtro</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalbg" id="modal"><div class="modal"><h2 id="modalTitle">Añadir</h2><div class="form" id="form"></div><div class="modalactions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" id="save">Guardar</button></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = "https://kfophwquwtjcxdmbjmji.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtmb3Bod3F1d3RqY3hkbWpiamppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NDc4ODIsImV4cCI6MjEwNDIyMzg4Mn0.rbvDX20So_MSPfEs6dY6pPST92vYiM2D5NLsLagXgKg";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let isRegistering = false;
+const demo={evaluations:[],expressAccounts:[],withdrawals:[],expenses:[]};
+let data = JSON.parse(JSON.stringify(demo));
+
+let currentFilter = "year2026";
+let customStartDate = "2026-01-01";
+let customEndDate = "2026-12-31";
+
+async function initSession(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if(session){
+    currentUser = session.user;
+    document.getElementById("userEmailLabel").textContent = currentUser.email;
+    document.getElementById("userInitial").textContent = currentUser.email.charAt(0).toUpperCase();
+    document.getElementById("authView").style.display = "none";
+    document.getElementById("appView").style.display = "block";
+    await loadUserData();
+  } else {
+    document.getElementById("authView").style.display = "flex";
+    document.getElementById("appView").style.display = "none";
+  }
+}
+
+async function loadUserData(){
+  const { data: row, error } = await supabaseClient.from("user_data").select("payload").eq("user_id", currentUser.id).single();
+  if(row && row.payload){
+    data = row.payload;
+  } else {
+    data = JSON.parse(JSON.stringify(demo));
+    await saveSupabase();
+  }
+  render(currentActivePage);
+}
+
+async function saveSupabase(){
+  if(!currentUser) return;
+  const { error } = await supabaseClient.from("user_data").upsert({
+    user_id: currentUser.id,
+    payload: data,
+    updated_at: new Date()
+  });
+  if(error) console.error("Error al guardar en Supabase:", error.message);
+}
+
+function save(){
+  saveSupabase();
+}
+
+function toggleAuthMode(){
+  isRegistering = !isRegistering;
+  document.getElementById("authTitle").textContent = isRegistering ? "Crear Cuenta" : "Iniciar Sesión";
+  document.getElementById("authSubmitBtn").textContent = isRegistering ? "Registrarse" : "Entrar";
+  document.getElementById("authToggleBtn").textContent = isRegistering ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate";
+}
+
+async function handleAuth(){
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  if(!email || !password){ toast("Introduce correo y contraseña"); return; }
+
+  if(isRegistering){
+    const { data: res, error } = await supabaseClient.auth.signUp({ email, password });
+    if(error) alert("Error: " + error.message);
+    else {
+      alert("¡Registro correcto! Ya puedes iniciar sesión o comprobar tu correo si requiere confirmación.");
+      isRegistering = false;
+      toggleAuthMode();
+    }
+  } else {
+    const { data: res, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if(error) alert("Error: " + error.message);
+    else {
+      initSession();
+    }
+  }
+}
+
+async function logout(){
+  await supabaseClient.auth.signOut();
+  location.reload();
+}
+
+function eur(n){return new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:2}).format(n||0)}
+function usd(n){return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(n||0)}
+function toast(t){const x=document.getElementById("toast");x.textContent=t;x.style.display="block";setTimeout(()=>x.style.display="none",2000)}
+
+function changeFilter(){
+  const val = document.getElementById("dateFilter").value;
+  if(val === "custom"){
+    document.getElementById("customDateModal").classList.add("open");
+  } else {
+    currentFilter = val;
+    render(currentActivePage);
+  }
+}
+
+function closeCustomModal(){
+  document.getElementById("customDateModal").classList.remove("open");
+  document.getElementById("dateFilter").value = currentFilter;
+}
+
+function applyCustomFilter(){
+  customStartDate = document.getElementById("customStart").value;
+  customEndDate = document.getElementById("customEnd").value;
+  currentFilter = "custom";
+  document.getElementById("customDateModal").classList.remove("open");
+  render(currentActivePage);
+  toast("Filtro de fechas aplicado");
+}
+
+function filterByDate(dateStr){
+  if(!dateStr) return true;
+  if(currentFilter === "all") return true;
+  const d = new Date(dateStr);
+  const now = new Date();
+  if(currentFilter === "year2026"){
+    return d.getFullYear() === 2026;
+  }
+  if(currentFilter === "month"){
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  if(currentFilter === "custom"){
+    return dateStr >= customStartDate && dateStr <= customEndDate;
+  }
+  return true;
+}
+
+let currentActivePage = "dashboard";
+function page(p){
+  currentActivePage = p;
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));
+  render(p);
+}
+
+function render(p="dashboard"){
+  currentActivePage = p;
+  const titles={
+    dashboard:["Dashboard","Resumen de tu rendimiento"],
+    evaluaciones:["Evaluaciones","Control histórico de cuentas de evaluación compradas"],
+    express:["Express Funded","Cuentas aprobadas procedentes de evaluaciones"],
+    retiros:["Retiros (Payouts)","Dinero real retirado de cuentas Express Funded"],
+    gastos:["Gastos Operativos","Costes adicionales y otras partidas"]
+  };
+  document.getElementById("title").textContent=titles[p][0];document.getElementById("subtitle").textContent=titles[p][1];
+  if(p==="dashboard") dashboard();
+  if(p==="evaluaciones") evaluationsView();
+  if(p==="express") expressView();
+  if(p==="retiros") withdrawalsView();
+  if(p==="gastos") expensesView();
+}
+
+function dashboard(){
+  const filteredEvals = data.evaluations.filter(e => filterByDate(e.date));
+  const filteredWithdrawals = data.withdrawals.filter(w => filterByDate(w.date));
+  const filteredExpenses = data.expenses.filter(ex => filterByDate(ex.date));
+
+  const totalEvalsCount = filteredEvals.length;
+  const activeEvalsCount = filteredEvals.filter(e => e.status === "Activa").length;
+  const expressCount = data.expressAccounts.length;
+  const ratio = totalEvalsCount ? (filteredEvals.filter(e => e.status === "Aprobada").length / totalEvalsCount * 100) : 0;
+
+  const directExpenses = filteredExpenses.reduce((s,x)=>s+x.amount,0);
+  const evalExpenses = filteredEvals.reduce((s,x)=>s+x.price,0);
+  const totalExpenses = directExpenses + evalExpenses;
+
+  const totalWithdrawals = filteredWithdrawals.reduce((s,x)=>s+x.amount,0);
+  const netBenefitUSD = totalWithdrawals - totalExpenses;
+
+  document.getElementById("content").innerHTML=`
+  <section class="cards">
+  <article class="card"><div class="cardtop"><div class="icon purple">📊</div><span class="trend up">${activeEvalsCount} activas</span></div><div class="label">Evaluaciones Compradas</div><div class="value">${totalEvalsCount}</div></article>
+  <article class="card"><div class="cardtop"><div class="icon green">🏆</div><span class="trend up">Histórico total</span></div><div class="label">Cuentas Express Funded</div><div class="value">${expressCount}</div></article>
+  <article class="card"><div class="cardtop"><div class="icon purple">🛡️</div><span class="trend up">Ratio Éxito</span></div><div class="label">Funding Ratio</div><div class="value">${ratio.toFixed(1)}%</div></article>
+  <article class="card"><div class="cardtop"><div class="icon red">💳</div><span class="trend up">Incluye evaluaciones</span></div><div class="label">Gastos Totales</div><div class="value">${eur(totalExpenses)}</div></article>
+  <article class="card"><div class="cardtop"><div class="icon green">💵</div><span class="trend up">Payouts reales</span></div><div class="label">Ganancias Totales</div><div class="value">${usd(totalWithdrawals)}</div></article>
+  <article class="card"><div class="cardtop"><div class="icon green">📈</div><span class="trend up">Rendimiento</span></div><div class="label">Retiros vs Gastos</div><div class="value">${usd(netBenefitUSD)}</div></article>
+  </section>
+
+  <section class="grid2">
+  <div class="panel">
+  <div class="panelhead"><div><h2>Cuentas Express Funded</h2><p>Estado actual de tus cuentas fondadas</p></div></div>
+  ${expressTable(3)}
+  </div>
+  <div class="panel">
+  <div class="panelhead"><div><h2>Últimos Retiros</h2><p>Payouts recientes en el período</p></div></div>
+  ${withdrawalsTable(3)}
+  </div>
+  </section>`;
+}
+
+function evaluationsView(){
+  const filtered = data.evaluations.filter(e => filterByDate(e.date));
+  document.getElementById("content").innerHTML=`<section class="panel"><div class="panelhead"><div><h2>Gestión de Evaluaciones</h2><p>Mostrando evaluaciones filtradas por el periodo seleccionado.</p></div><button class="btn primary" onclick="openEvalModal()">+ Añadir Evaluación</button></div>${evaluationsTableCustom(filtered)}</section>`;
+}
+
+function evaluationsTableCustom(list){
+  if(!list.length)return '<div style="padding:20px;text-align:center;color:var(--muted)">No hay evaluaciones registradas en este período.</div>';
+  return `<table><thead><tr><th>Fecha Compra</th><th>Firma</th><th>Nombre / Tamaño</th><th>Precio (€)</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${list.map(e=>`<tr><td>${e.date}</td><td><strong>${e.firm}</strong></td><td>${e.name}</td><td>${eur(e.price)}</td><td><span class="status" style="background:${e.status==='Activa'?'#eaf9ef':e.status==='Aprobada'?'#e0e7ff':'#fee2e2'};color:${e.status==='Activa'?'var(--green)':e.status==='Aprobada'?'#4f46e5':'var(--red)'}">${e.status}</span></td><td><button class="btn" onclick="editEval(${e.id})">Editar</button> ${e.status==='Activa'?`<button class="btn primary" onclick="approveEval(${e.id})">Aprobar</button> <button class="btn danger" onclick="failEval(${e.id})">Perdida</button>`:''} <button class="btn danger" onclick="delEval(${e.id})">×</button></td></tr>`).join("")}</tbody></table>`;
+}
+
+function openEvalModal(a={}){
+  openModal(a.id?"Editar Evaluación":"Añadir Evaluación",`
+  <label>Fecha de Compra<input id="date" type="date" value="${a.date||new Date().toISOString().slice(0,10)}"></label>
+  <label>Firma (Prop Firm)<input id="firm" value="${a.firm||"Topstep"}"></label>
+  <label>Nombre / Tamaño de cuenta<input id="name" value="${a.name||"50K Combine"}"></label>
+  <label>Precio (€)<input id="price" type="number" step="0.01" value="${a.price??49}"></label>
+  <label>Estado Inicial<select id="status"><option ${a.status==="Activa"?"selected":""}>Activa</option><option ${a.status==="Aprobada"?"selected":""}>Aprobada</option><option ${a.status==="Perdida"?"selected":""}>Perdida</option></select></label>`,()=>{
+  const newStatus = val("status");
+  const obj={id:a.id||Date.now(),date:val("date"),firm:val("firm"),name:val("name"),price:+val("price"),status:newStatus};
+  
+  if(a.id){
+    data.evaluations=data.evaluations.map(x=>x.id===a.id?obj:x);
+  } else {
+    data.evaluations.push(obj);
+    if(newStatus === "Aprobada"){
+      data.expressAccounts.push({
+        id:Date.now(),
+        firm:obj.firm,
+        name:obj.name + " (Funded)",
+        balance:50000,
+        dll:1000,
+        status:"Activa"
+      });
+    }
+  }
+  save();render(currentActivePage);toast("Evaluación guardada")})
+}
+
+function editEval(id){openEvalModal(data.evaluations.find(x=>x.id===id))}
+function delEval(id){if(confirm("¿Eliminar evaluación?")){data.evaluations=data.evaluations.filter(x=>x.id!==id);save();render(currentActivePage);toast("Evaluación eliminada")}}
+
+function approveEval(id){
+  const ev=data.evaluations.find(x=>x.id===id);
+  if(!ev)return;
+  ev.status="Aprobada";
+  data.expressAccounts.push({
+    id:Date.now(),
+    firm:ev.firm,
+    name:ev.name + " (Funded)",
+    balance:50000,
+    dll:1000,
+    status:"Activa"
+  });
+  save();
+  render(currentActivePage);
+  toast("¡Evaluación aprobada y movida a Express Funded!");
+}
+
+function failEval(id){
+  const ev=data.evaluations.find(x=>x.id===id);
+  if(!ev)return;
+  ev.status="Perdida";
+  save();
+  render(currentActivePage);
+  toast("Evaluación marcada como perdida");
+}
+
+function expressView(){
+  document.getElementById("content").innerHTML=`<section class="panel"><div class="panelhead"><div><h2>Cuentas Express Funded</h2><p>Listado de cuentas fondadas. Puedes cambiar su estado a Activa o Perdida.</p></div></div>${expressTable(999)}</section>`;
+}
+function expressTable(limit){
+  if(!data.expressAccounts.length)return '<div style="padding:20px;text-align:center;color:var(--muted)">No hay cuentas Express Funded todavía.</div>';
+  return `<table><thead><tr><th>Firma</th><th>Nombre</th><th>Balance ($)</th><th>Límite DLL</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${data.expressAccounts.slice(0,limit).map(a=>`<tr><td><strong>${a.firm}</strong></td><td>${a.name}</td><td>${usd(a.balance)}</td><td>${usd(a.dll)}</td><td><span class="status" style="background:${a.status==='Activa'?'#eaf9ef':'#fee2e2'};color:${a.status==='Activa'?'var(--green)':'var(--red)'}">${a.status}</span></td><td><button class="btn" onclick="toggleExpressStatus(${a.id})">${a.status==='Activa'?'Marcar Perdida':'Marcar Activa'}</button> <button class="btn danger" onclick="delExpress(${a.id})">×</button></td></tr>`).join("")}</tbody></table>`;
+}
+
+function toggleExpressStatus(id){
+  const acc = data.expressAccounts.find(x => x.id === id);
+  if(acc){
+    acc.status = acc.status === "Activa" ? "Perdida" : "Activa";
+    save();
+    render(currentActivePage);
+    toast("Estado de cuenta actualizado");
+  }
+}
+
+function delExpress(id){if(confirm("¿Eliminar cuenta Express Funded?")){data.expressAccounts=data.expressAccounts.filter(x=>x.id!==id);save();render(currentActivePage);toast("Cuenta eliminada")}}
+
+function withdrawalsView(){
+  const filtered = data.withdrawals.filter(w => filterByDate(w.date));
+  document.getElementById("content").innerHTML=`<section class="panel"><div class="panelhead"><div><h2>Historial de Retiros (Payouts)</h2><p>Mostrando retiros filtrados por el período.</p></div><button class="btn primary" onclick="openWithdrawalModal()">+ Añadir Retiro</button></div>${withdrawalsTableCustom(filtered)}</section>`;
+}
+function withdrawalsTableCustom(list){
+  if(!list.length)return '<div style="padding:20px;text-align:center;color:var(--muted)">No hay retiros registrados en este período.</div>';
+  return `<table><thead><tr><th>Fecha</th><th>Firma / Cuenta Express</th><th>Importe ($)</th><th>Acciones</th></tr></thead><tbody>${list.map(w=>`<tr><td>${w.date}</td><td><strong>${w.firm}</strong></td><td class="up">${usd(w.amount)}</td><td><button class="btn danger" onclick="delWithdrawal(${w.id})">Eliminar</button></td></tr>`).join("")}</tbody></table>`;
+}
+function withdrawalsTable(limit){
+  const filtered = data.withdrawals.filter(w => filterByDate(w.date));
+  if(!filtered.length)return '<div style="padding:20px;text-align:center;color:var(--muted)">No hay retiros recientes.</div>';
+  return `<table><thead><tr><th>Fecha</th><th>Firma / Cuenta Express</th><th>Importe ($)</th></tr></thead><tbody>${filtered.slice(0,limit).map(w=>`<tr><td>${w.date}</td><td><strong>${w.firm}</strong></td><td class="up">${usd(w.amount)}</td></tr>`).join("")}</tbody></table>`;
+}
+function openWithdrawalModal(){
+  openModal("Añadir Retiro",`<label>Fecha<input id="date" type="date" value="${new Date().toISOString().slice(0,10)}"></label><label>Firma / Cuenta Express<input id="firm" value="Topstep (Express)"></label><label>Importe ($)<input id="amount" type="number" step="0.01" value="1000"></label>`,()=>{data.withdrawals.push({id:Date.now(),date:val("date"),firm:val("firm"),amount:+val("amount")});save();render(currentActivePage);toast("Retiro registrado")})
+}
+function delWithdrawal(id){data.withdrawals=data.withdrawals.filter(x=>x.id!==id);save();render(currentActivePage);toast("Retiro eliminado")}
+
+function expensesView(){
+  const filtered = data.expenses.filter(e => filterByDate(e.date));
+  document.getElementById("content").innerHTML=`<section class="panel"><div class="panelhead"><div><h2>Control de Gastos Adicionales</h2><p>Gastos operativos en el período seleccionado.</p></div><button class="btn primary" onclick="openExpenseModal()">+ Añadir Gasto</button></div>${filtered.length?`<table><thead><tr><th>Fecha</th><th>Concepto</th><th>Importe (€)</th><th>Acciones</th></tr></thead><tbody>${filtered.map(e=>`<tr><td>${e.date}</td><td>${e.concept}</td><td class="down">${eur(e.amount)}</td><td><button class="btn danger" onclick="delExpense(${e.id})">Eliminar</button></td></tr>`).join("")}</tbody></table>`:'<div style="padding:20px;text-align:center;color:var(--muted)">No hay gastos en este período.</div>'}</section>`;
+}
+function openExpenseModal(){
+  openModal("Añadir Gasto Adicional",`<label>Fecha<input id="date" type="date" value="${new Date().toISOString().slice(0,10)}"></label><label>Concepto<input id="concept" value="Activación / Comisión"></label><label>Importe (€)<input id="amount" type="number" step="0.01" value="50"></label>`,()=>{data.expenses.push({id:Date.now(),date:val("date"),concept:val("concept"),amount:+val("amount")});save();render(currentActivePage);toast("Gasto registrado")})
+}
+function delExpense(id){data.expenses=data.expenses.filter(x=>x.id!==id);save();render(currentActivePage);toast("Gasto eliminado")}
+
+function openModal(title,fields,cb){document.getElementById("modalTitle").textContent=title;document.getElementById("form").innerHTML=fields;document.getElementById("modal").classList.add("open");document.getElementById("save").onclick=()=>{cb();closeModal()}}
+function closeModal(){document.getElementById("modal").classList.remove("open")}
+function val(id){return document.getElementById(id).value}
+
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>page(b.dataset.page));
+document.getElementById("reset").onclick=()=>{
+  if(confirm("¿Estás seguro de poner todo a 0 (borrar todos los datos de tu cuenta)?")){
+    data={evaluations:[],expressAccounts:[],withdrawals:[],expenses:[]};
+    save();
+    render(currentActivePage);
+    toast("Todo se ha puesto a 0 correctamente");
+  }
+};
+
+initSession();
+</script>
+</body>
+</html>
